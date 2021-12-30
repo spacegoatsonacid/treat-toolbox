@@ -5,6 +5,6 @@ export const api = functions
   .region('europe-west2')
   .runWith({
     timeoutSeconds: 540,
-    memory: "2GB",
+    memory: "4GB",
   })
   .https.onRequest(httpFunctions.api);
