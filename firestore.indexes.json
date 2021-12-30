@@ -1,4 +1,47 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "conflicts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "traitSetId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "trait1Id",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "imagelayers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "traitSetId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "traits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "traitSetIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "zIndex",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

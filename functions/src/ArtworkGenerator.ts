@@ -25,6 +25,8 @@ import {
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
+const sharp = require("sharp");
+
 const tempDir = os.tmpdir();
 
 const TRAITVALUES_RARITY_MAX_PRECISION: number = 4;
@@ -129,43 +131,6 @@ export class ArtworkGenerator {
     }
 
     const projectDownloadPath = this.projectDownloadPath();
-
-    // setup only necessary at the beginning of a run,
-    // so only do this for batchNum = 0
-    if (this.startIndex == 0) {
-      // create download directory for all images
-      await fs.promises.mkdir(
-        projectDownloadPath,
-        { recursive: true },
-        (err: Error) => {
-          if (err) {
-            logger.error("error creating project directory");
-            logger.error(err);
-          }
-        }
-      );
-
-      const layerDownloadPath = this.layerDownloadPath();
-
-      // create download directory for all artwork
-      await fs.promises.mkdir(
-        layerDownloadPath,
-        { recursive: true },
-        (err: Error) => {
-          if (err) {
-            logger.error("error creating layers directory");
-            logger.error(err);
-          }
-        }
-      );
-    }
-
-    if (this.isFirstBatchInTraitSet) {
-      // predownload all uncomposited artwork
-      await Promise.all(
-        imageLayers.map((imageLayer) => this.downloadImageFile(imageLayer))
-      );
-    }
 
     // generate artwork for each item in the collection supply
     let composites: (ImageComposite | null)[] = [];
@@ -359,51 +324,33 @@ export class ArtworkGenerator {
     );
 
     const inputFilePaths = sortedImageLayers.map((imageLayer) => {
-      return imageLayer ? this.downloadPathForImageLayer(imageLayer) : null;
-    });
-
-    const outputFilePath: string = path.join(
-      projectDownloadPath,
-      itemIndex + ".png"
-    );
-
-    let succeeded = await this.compositeLayeredImages(
-      inputFilePaths,
-      outputFilePath
-    );
-
-    if (succeeded) {
-      // upload the composite back to the bucket
-      const bucket = storage.bucket();
-      const uploadFilePath =
+      const basePath =
         this.projectId +
         "/" +
         collection.id +
-        "/generated/" +
-        this.compositeGroupId +
-        "/" +
-        itemIndex +
-        ".png";
+        "/";
 
-      const uploadFile = bucket.file(uploadFilePath);
+      return imageLayer ? basePath + imageLayer.bucketFilename : null;
+    });
 
-      const downloadURL = await bucket
-        .upload(outputFilePath, {
-          destination: uploadFilePath,
-          metadata: {
-            contentType: "image/png",
-          },
-        })
-        .then(() => {
-          return uploadFile.publicUrl();
-        })
-        .catch((err: Error) => {
-          logger.error("error uploading file to bucket");
-          logger.error(err);
-        });
+    const uploadFilePath =
+      this.projectId +
+      "/" +
+      collection.id +
+      "/generated/" +
+      this.compositeGroupId +
+      "/" +
+      itemIndex +
+      ".png";
 
+    let outputFile = await this.compositeLayeredImages(
+      inputFilePaths,
+      uploadFilePath,
+    );
+
+    if (outputFile) {
       const imageComposite = {
-        externalURL: downloadURL,
+        externalURL: outputFile.publicUrl(),
         traits: sortedTraitValueImagePairs,
         traitsHash: hash,
       } as ImageComposite;
@@ -774,42 +721,76 @@ export class ArtworkGenerator {
     return orderedImageLayers;
   }
 
-  compositeLayeredImages(
+  async compositeLayeredImages(
     optInputFilePaths: (string | null)[],
     outputFilePath: string
-  ): Promise<boolean> {
+  ): Promise<any> {
     const inputFilePaths = optInputFilePaths.filter((f) => f);
     if (inputFilePaths.length == 0) {
       return Promise.resolve(false);
     }
 
-    const sharp = require("sharp");
     const firstPath = inputFilePaths.shift();
 
-    if (inputFilePaths.length == 0) {
-      return sharp(firstPath).png().toFile(outputFilePath);
+    console.log(firstPath);
+    console.log(inputFilePaths);
+    console.log(outputFilePath);
+
+    if (firstPath === undefined || firstPath === null) {
+      return Promise.resolve(false);
     }
 
-    const inputs = inputFilePaths.map((inputFilePath) => {
-      return {
-        input: inputFilePath,
-      };
-    });
+    const metadata = {
+      contentType: 'image/png',
+    };
 
-    return sharp(firstPath)
-      .composite(inputs)
-      .png()
-      .toFile(outputFilePath)
-      .then((_: any) => {
-        return true;
-      })
-      .catch((err: Error) => {
-        logger.error("error compositing");
-        logger.error("first path: " + firstPath);
-        logger.error(inputs);
-        logger.error(err);
-        return false;
-      });
+    const bucket = storage.bucket();
+    const outputFile = bucket.file(outputFilePath);
+    const uploadStream = outputFile.createWriteStream({ metadata });
+
+    const inputs = await Promise.all(
+      inputFilePaths.map((inputFilePath) => {
+        console.log(inputFilePath);
+        return new Promise((resolve, reject) => {
+          if (inputFilePath) {
+            const stream = bucket.file(inputFilePath).createReadStream({ validation: false });
+            const chunks:Uint8Array[] = [];
+
+            stream.on('data', (chunk) => {
+              chunks.push(chunk);
+            });
+
+            stream.on('error', (err) => {
+              logger.error(err);
+              return reject(err);
+            })
+
+            stream.on('end', () => {
+              return resolve({
+                input: Buffer.concat(chunks),
+              });
+            })
+          }
+
+          // return resolve()
+        })
+      }).filter(Boolean)
+    );
+
+    const pipeline = sharp();
+    if (inputFilePaths.length == 0) {
+      pipeline.png().pipe(uploadStream);
+    } else {
+      pipeline.composite(inputs).png().pipe(uploadStream);
+    }
+
+    bucket.file(firstPath).createReadStream({ validation: false }).pipe(pipeline);
+
+    return new Promise((resolve, reject) => (
+       uploadStream
+         .on('finish', () => resolve(outputFile))
+         .on('error', () => reject(false))
+    ));
   }
 
   projectDownloadPath(): string {
