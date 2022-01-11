@@ -284,6 +284,21 @@ export default function IndexPage(props: Props) {
                                 <div className="text-sm text-gray-900">
                                   {trait?.name || "Unknown"}
                                 </div>
+                                {traitSets
+                                  .filter((traitSet) => {
+                                    if (trait?.traitSetIds) {
+                                      return trait?.traitSetIds?.includes(
+                                        traitSet.id
+                                      );
+                                    }
+                                    return null;
+                                  })
+                                  .map((traitSet) => (
+                                    <div className="text-xs inline-block py-1 px-2 rounded-md text-white bg-indigo-600 uppercase last:mr-0 mr-1">
+                                      {traitSet.name}
+                                    </div>
+                                  ))
+                                }
                               </td>
                               <td className="px-6 py-4">
                                 <div
