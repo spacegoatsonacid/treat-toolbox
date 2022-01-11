@@ -26,7 +26,7 @@ interface Props {
   userGroupId: string;
 }
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 50;
 
 export default function IndexPage(props: Props) {
   const project = props.project;

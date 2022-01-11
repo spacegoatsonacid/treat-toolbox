@@ -732,10 +732,6 @@ export class ArtworkGenerator {
 
     const firstPath = inputFilePaths.shift();
 
-    console.log(firstPath);
-    console.log(inputFilePaths);
-    console.log(outputFilePath);
-
     if (firstPath === undefined || firstPath === null) {
       return Promise.resolve(false);
     }
@@ -771,8 +767,6 @@ export class ArtworkGenerator {
               });
             })
           }
-
-          // return resolve()
         })
       }).filter(Boolean)
     );
