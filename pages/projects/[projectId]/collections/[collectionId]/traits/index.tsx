@@ -293,8 +293,8 @@ export default function IndexPage(props: Props) {
                                     }
                                     return null;
                                   })
-                                  .map((traitSet) => (
-                                    <div className="text-xs inline-block py-1 px-2 rounded-md text-white bg-indigo-600 uppercase last:mr-0 mr-1">
+                                  .map((traitSet, i) => (
+                                    <div key={`${trait?.name || 'Unknown'}-traitSet-${i}`} className="text-xs inline-block py-1 px-2 rounded-md text-white bg-indigo-600 uppercase last:mr-0 mr-1">
                                       {traitSet.name}
                                     </div>
                                   ))
