@@ -42,7 +42,7 @@ export class CandyMachineDownloader {
 
     // generate random name for a file
     const file = bucket.file(
-      "/candy-machine-" + this.compositeGroupId + "-" + this.batchNumber
+      "candy-machine-" + this.compositeGroupId + "-" + this.batchNumber
     );
 
     const outputStreamBuffer = file.createWriteStream({
