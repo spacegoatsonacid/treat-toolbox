@@ -34,7 +34,7 @@ export default function IndexPage(props: Props) {
   const compositesCountDict = props.compositesCountDict;
   const projectId = props.projectId;
 
-  const BATCH_SIZE = 100;
+  const BATCH_SIZE = 10;
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [generatingModalOpen, setGeneratingModalOpen] = useState(false);
