@@ -266,7 +266,7 @@ export default function IndexPage(props: Props) {
               title="Export Complete"
               message="Your Candy Machine files are ready to be downloaded!"
               actionButtonTitle="Download"
-              actionURLs={downloadURLs}
+              actionURLs={downloadURLs.map((url: string) => url.replace('storage.googleapis.com', 'storage.cloud.google.com'))}
               cancelAction={() => {
                 setDownloadModalOpen(false);
               }}

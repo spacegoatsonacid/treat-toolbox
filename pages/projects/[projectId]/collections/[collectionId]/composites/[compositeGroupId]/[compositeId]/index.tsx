@@ -132,7 +132,7 @@ export default function IndexPage(props: Props) {
                     <div className="float-left p-4">
                       {composite.externalURL ? (
                         <Image
-                          src={composite.externalURL}
+                          src={composite.externalURL.replace('storage.googleapis.com', 'storage.cloud.google.com')}
                           alt="Skull"
                           width="500"
                           height="500"
