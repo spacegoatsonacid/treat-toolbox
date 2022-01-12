@@ -103,6 +103,8 @@ export default function IndexPage(props: Props) {
       traitSets = [defaultTraitSet];
     }
 
+    const promiseResults = [];
+    
     for (let i = 0; i < traitSets.length && !isGeneratingCancelled; i++) {
       const traitSet = traitSets[i];
       let traitSetCreated = 0;
@@ -121,7 +123,7 @@ export default function IndexPage(props: Props) {
         const maxTraitSetBatchSize = traitSet.supply - traitSetCreated;
         const batchSize = Math.min(BATCH_SIZE, maxTraitSetBatchSize);
 
-        const newComposites = await fetch(
+        const newComposites = fetch(
           API.ENDPOINT +
             "/generate-artwork?projectId=" +
             projectId +
@@ -145,24 +147,27 @@ export default function IndexPage(props: Props) {
             },
           }
         )
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error("Network response was not ok");
-            }
-            return response.json();
-          })
-          .then((json) => {
-            console.log(json);
-            return json;
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-          });
+
+        promiseResults.push(newComposites);
 
         traitSetCreated += batchSize;
         totalCreated += batchSize;
       }
     }
+
+    await Promise.allSettled(promiseResults).then((results) => {
+      results.map((result, i: number) => {
+        if (result.status == "fulfilled") {
+          if (result.value.ok) {
+            console.log(result.value.json());
+            return result.value.json();
+          }
+          throw new Error(`Response ${i} was not OK`);
+        } else {
+          throw new Error(`Network response ${i} was not ok`);
+        }
+      })
+    });
 
     console.log("art generation complete");
 
