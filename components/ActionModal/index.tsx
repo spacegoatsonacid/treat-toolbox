@@ -84,7 +84,7 @@ export const ActionModal: React.FC<Props> = ({
                         <div key={i}>
                           <Link href={url} passHref={true}>
                             <a target="_blank" rel="noreferrer" className="block pl-2 pt-1 pb-1 truncate text-xs max-w-md font-mono bg-purple-50 border-l-2 border-purple-600 mb-1 hover:bg-purple-200">
-                              Download Batch {i}
+                              Download Batch {i+1}
                             </a>
                           </Link>
                         </div>

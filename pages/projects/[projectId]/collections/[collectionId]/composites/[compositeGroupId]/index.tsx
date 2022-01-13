@@ -15,6 +15,7 @@ import { ProgressModal } from "../../../../../../../components/ProgressModal";
 import { ActionModal } from "../../../../../../../components/ActionModal";
 import { useState } from "react";
 import { ImageCompositeGroups } from "../../../../../../../models/imageCompositeGroup";
+import { chunk } from 'lodash';
 
 interface Props {
   project: Project;
@@ -71,42 +72,56 @@ export default function IndexPage(props: Props) {
 
     const urls: string[] = [];
 
-    for (let i = 0; i < composites.length / BATCH_SIZE; i++) {
-      setExportedItems(i * BATCH_SIZE);
+    const compositeChunks = chunk(composites, BATCH_SIZE);
 
-      const response = await fetch(
-        API.ENDPOINT +
-          "/download-archive?projectId=" +
-          projectId +
-          "&collectionId=" +
-          collection.id +
-          "&compositeGroupId=" +
-          compositeGroupId +
-          "&userGroupId=" +
-          userGroupId +
-          "&batchSize=" +
-          BATCH_SIZE +
-          "&batchNumber=" +
-          (i + 1),
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
+    const promiseResults = await Promise.allSettled(
+      compositeChunks.map((compositeChunk, i: number) => {
+        setExportedItems(i * BATCH_SIZE);
+
+        return fetch(
+          API.ENDPOINT +
+            "/download-archive?projectId=" +
+            projectId +
+            "&collectionId=" +
+            collection.id +
+            "&compositeGroupId=" +
+            compositeGroupId +
+            "&userGroupId=" +
+            userGroupId +
+            "&batchSize=" +
+            BATCH_SIZE +
+            "&batchNumber=" +
+            (i + 1),
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            }
+          }
+        );
+      })
+    );
+    
+    await Promise.all(
+      promiseResults.map(async (result) => {
+        if (result.status == "fulfilled") {
+          if (result.value.ok) {
+            const json = await result.value.json();
+            console.log(json);
+            return urls.push(json.url);            
+          } else {
+            console.error("Error: ", result.value.statusText);
+            setExportingModalOpen(false);
+            alert("Export Request Failed");    
+          }
+        } else {
+          console.error("Error: fetch ", result.status);
+          setExportingModalOpen(false);
+          alert("Export Request Failed");    
         }
-      );
-
-      if (!response.ok) {
-        console.error("Error: ", response.statusText);
-        setExportingModalOpen(false);
-        alert("Export Request Failed");
-      } else {
-        const json = await response.json();
-        console.log(json);
-        urls.push(json.url);
-      }
-    }
+      }),
+    );
 
     console.log(urls);
 
