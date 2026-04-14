@@ -24,6 +24,7 @@ export default interface ImageLayer {
   traitSetId: string | null;
   traitId: string | null;
   traitValueId: string | null;
+  blendingMode: string | null;
   companionLayerId: string | null;
   companionLayerZIndex: number | null;
 }

@@ -97,19 +97,19 @@ export class CandyMachineDownloader {
       const compositeDownloadPath = this.pathForComposite(composite);
       const compositeFilename = orderNumber + ".png";
 
-      // create metadata json file
-      const isSuccessful = await CandyMachine.exportItem(
-        orderNumber,
-        project,
-        creators,
-        collection,
-        this.compositeGroupId,
-        composite
-      );
+      // create metadata json file - doing this during generation instead of packaging
+      // const isSuccessful = await CandyMachine.exportItem(
+      //   orderNumber,
+      //   project,
+      //   creators,
+      //   collection,
+      //   this.compositeGroupId,
+      //   composite
+      // );
 
-      if (!isSuccessful) {
-        continue;
-      }
+      // if (!isSuccessful) {
+      //   continue;
+      // }
 
       // TODO: why does validation always fail if I don't disable it?
       const compositeFile = await bucket

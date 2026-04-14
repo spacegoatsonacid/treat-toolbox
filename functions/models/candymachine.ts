@@ -155,7 +155,7 @@ export namespace CandyMachine {
       description: project.description,
       seller_fee_basis_points: collection.sellerFeeBasisPoints,
       external_url: externalUrl,
-      image: orderNumber + ".png",
+      image: orderNumber + ".jpg",
       attributes: attributes,
       collection: {
         name: collection.name,
@@ -165,8 +165,8 @@ export namespace CandyMachine {
         category: "image",
         files: [
           {
-            uri: orderNumber + ".png",
-            type: "image/png",
+            uri: orderNumber + ".jpg",
+            type: "image/jpeg",
           } as FileItem,
         ],
         creators: creators.map((creator) => {

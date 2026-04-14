@@ -12,6 +12,10 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  QuerySnapshot,
+  DocumentData,
+  startAfter,
+  startAt,
 } from "firebase/firestore";
 import { Projects } from "./project";
 import { Collections } from "./collection";
@@ -42,6 +46,41 @@ export namespace ImageComposites {
     collectionId: string,
     compositeGroupId: string
   ): Promise<Array<any>> {
+    const limit = 500;
+    const initialData = await paginated(projectId, collectionId, compositeGroupId, limit, null);
+
+    let batchSize:number = initialData.docs.length;
+    let lastItem = initialData.docs[batchSize - 1];
+
+    const results = [initialData.docs];
+
+    while (batchSize === limit) {
+      console.log(batchSize);
+      const result = await paginated(projectId, collectionId, compositeGroupId, limit, lastItem);
+      results.push(result.docs);
+      // Get ready for the next loop
+      lastItem = result.docs[batchSize - 1];
+      batchSize = result.docs.length;
+    }
+  
+    const composites = results.map((compositeDocs) => {
+      return compositeDocs.map((compositeDoc) => {
+        const composite = compositeDoc.data();
+        composite.id = compositeDoc.id;
+        return composite;
+      });
+    }).flat();
+
+    return composites;
+  }
+
+  export async function paginated(
+    projectId: string,
+    collectionId: string,
+    compositeGroupId: string,
+    perPage: number,
+    offset: DocumentData | null,
+  ): Promise<QuerySnapshot<DocumentData>> {
     const compositesQuery = query(
       collection(
         db,
@@ -58,18 +97,13 @@ export namespace ImageComposites {
           compositeGroupId +
           "/" +
           FB_COLLECTION_NAME
-      )
+      ),
+      orderBy('externalURL'),
+      limit(perPage),
+      startAt(offset),
     );
 
-    const querySnapshot = await getDocs(compositesQuery);
-
-    const composites = querySnapshot.docs.map((compositeDoc) => {
-      const composite = compositeDoc.data();
-      composite.id = compositeDoc.id;
-      return composite;
-    });
-
-    return composites;
+    return getDocs(compositesQuery);
   }
 
   export async function withId(

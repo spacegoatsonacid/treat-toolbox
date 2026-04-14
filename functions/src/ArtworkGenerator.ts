@@ -20,7 +20,10 @@ import {
   TraitValuePair,
   TraitValues,
   TraitSet,
+  Users,
+  Projects,
 } from "../models/models";
+import { CandyMachine } from "../models/candymachine";
 
 const path = require("path");
 const os = require("os");
@@ -66,6 +69,10 @@ export class ArtworkGenerator {
       this.collectionId,
       this.projectId
     );
+    
+    const project = await Projects.withId(this.projectId);
+    const creators = await Users.all(collection.userGroupId);
+
     const traits = await Traits.all(
       this.projectId,
       this.collectionId,
@@ -76,6 +83,7 @@ export class ArtworkGenerator {
       this.collectionId,
       this.traitSetId
     );
+    
     const traitSet = this.traitSetId
       ? await TraitSets.withId(
           this.traitSetId,
@@ -188,7 +196,7 @@ export class ArtworkGenerator {
           break;
       }
 
-      if (compositeData) {
+      if (compositeData) {  
         continuousFailures = 0;
 
         const composite = await ImageComposites.create(
@@ -207,6 +215,20 @@ export class ArtworkGenerator {
           traitValues,
           composite
         );
+
+        // create metadata json file
+        const isSuccessful = await CandyMachine.exportItem(
+          i,
+          project,
+          creators,
+          collection,
+          this.compositeGroupId,
+          composite
+        );
+
+        if (!isSuccessful) {
+          continue;
+        }
       } else {
         continuousFailures++;
         console.error("no composite data");
@@ -343,14 +365,15 @@ export class ArtworkGenerator {
       itemIndex +
       ".png";
 
-    let outputFile = await this.compositeLayeredImages(
+    let outputFiles = await this.compositeLayeredImages(
       inputFilePaths,
       uploadFilePath,
+      sortedImageLayers,
     );
 
-    if (outputFile) {
+    if (outputFiles) {
       const imageComposite = {
-        externalURL: outputFile.publicUrl(),
+        externalURL: outputFiles[0].publicUrl(),
         traits: sortedTraitValueImagePairs,
         traitsHash: hash,
       } as ImageComposite;
@@ -379,8 +402,10 @@ export class ArtworkGenerator {
 
     let succeeded = await this.compositeLayeredImages(
       [inputFilePath],
-      outputFilePath
+      outputFilePath,
+      [],
     );
+    
 
     if (succeeded) {
       // upload the composite back to the bucket
@@ -466,6 +491,7 @@ export class ArtworkGenerator {
       let trait1Value = traitValuePairs[trait1Index].traitValue;
       if (
         (conflict.trait1ValueId !== null &&
+          conflict.trait1ValueId !== "-1" &&
           conflict.trait1ValueId !== trait1Value?.id) ||
         trait1Value?.id == null
       ) {
@@ -475,6 +501,7 @@ export class ArtworkGenerator {
       let trait2Value = traitValuePairs[trait2Index].traitValue;
       if (
         (conflict.trait2ValueId !== null &&
+          conflict.trait2ValueId !== "-1" &&
           conflict.trait2ValueId !== trait2Value?.id) ||
         trait2Value?.id == null
       ) {
@@ -483,8 +510,8 @@ export class ArtworkGenerator {
 
       const trait1Name = traitValuePairs[trait1Index].trait.name;
       const trait2Name = traitValuePairs[trait2Index].trait.name;
-      const trait1ValueName = conflict.trait1ValueId ? trait1Value.name : "Any";
-      const trait2ValueName = conflict.trait2ValueId ? trait2Value.name : "Any";
+      const trait1ValueName = conflict.trait1ValueId && conflict.trait1ValueId !== "-1" ? trait1Value.name : "Any";
+      const trait2ValueName = conflict.trait2ValueId && conflict.trait2ValueId !== "-1" ? trait2Value.name : "Any";
 
       let resolution: string;
 
@@ -723,7 +750,8 @@ export class ArtworkGenerator {
 
   async compositeLayeredImages(
     optInputFilePaths: (string | null)[],
-    outputFilePath: string
+    outputFilePath: string,
+    sortedImageLayers: ImageLayer[],
   ): Promise<any> {
     const inputFilePaths = optInputFilePaths.filter((f) => f);
     if (inputFilePaths.length == 0) {
@@ -731,6 +759,7 @@ export class ArtworkGenerator {
     }
 
     const firstPath = inputFilePaths.shift();
+    const firstImageLayer = sortedImageLayers?.shift();
 
     if (firstPath === undefined || firstPath === null) {
       return Promise.resolve(false);
@@ -740,13 +769,23 @@ export class ArtworkGenerator {
       contentType: 'image/png',
     };
 
+    const outputFilePaths = outputFilePath.split('/');
+    const outputFileName = outputFilePaths.pop();
+    const outputFileExt = path.extname(outputFileName);
+    const fullSizeOutputFilePath = `${outputFilePaths.join('/')}-fullSize/${outputFileName}`;
+    
+
     const bucket = storage.bucket();
-    const outputFile = bucket.file(outputFilePath);
-    const uploadStream = outputFile.createWriteStream({ metadata });
+    const outputFile = bucket.file(outputFilePath.replace(outputFileExt, '.jpg'));
+    const fullSizeOutputFile = bucket.file(fullSizeOutputFilePath);
+
+    const uploadStream = outputFile.createWriteStream({ 
+      contentType: 'image/jpeg'
+    });
+    const fullSizeUploadStream = fullSizeOutputFile.createWriteStream({ metadata });
 
     const inputs = await Promise.all(
-      inputFilePaths.map((inputFilePath) => {
-        console.log(inputFilePath);
+      inputFilePaths.map((inputFilePath, i: number) => {
         return new Promise((resolve, reject) => {
           if (inputFilePath) {
             const stream = bucket.file(inputFilePath).createReadStream({ validation: false });
@@ -764,6 +803,7 @@ export class ArtworkGenerator {
             stream.on('end', () => {
               return resolve({
                 input: Buffer.concat(chunks),
+                blend: sortedImageLayers[i].blendingMode
               });
             })
           }
@@ -772,19 +812,31 @@ export class ArtworkGenerator {
     );
 
     const pipeline = sharp();
-    if (inputFilePaths.length == 0) {
-      pipeline.png().pipe(uploadStream);
-    } else {
-      pipeline.composite(inputs).png().pipe(uploadStream);
-    }
 
+    // Composite the layers, if there are more than 0
+    if (inputFilePaths.length > 0) {
+      pipeline.composite(inputs);
+    }
+    
+    // Split the pipeline and stream to both locations...
+    pipeline.clone().jpeg().pipe(uploadStream);
+    pipeline.png().pipe(fullSizeUploadStream);
+
+    // Read the first file to create the pipeline
     bucket.file(firstPath).createReadStream({ validation: false }).pipe(pipeline);
 
-    return new Promise((resolve, reject) => (
-       uploadStream
-         .on('finish', () => resolve(outputFile))
-         .on('error', () => reject(false))
-    ));
+    return Promise.all([
+      new Promise((resolve, reject) => (
+        uploadStream
+          .on('finish', () => resolve(outputFile))
+          .on('error', () => reject(false))
+      )),
+      new Promise((resolve, reject) => (
+        fullSizeUploadStream
+          .on('finish', () => resolve(fullSizeOutputFile))
+          .on('error', () => reject(false))
+      ))
+    ]);
   }
 
   projectDownloadPath(): string {

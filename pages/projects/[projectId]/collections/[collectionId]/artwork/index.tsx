@@ -70,17 +70,26 @@ export default function IndexPage(props: Props) {
   ) => {
     event.preventDefault();
     setImageLayerIdToDelete(imageLayerId);
-    setDeleteModalOpen(true);
+    // setDeleteModalOpen(true);
+    await deleteImageLayer(imageLayerId);
+    // setDeleteModalOpen(false);
   };
 
-  const deleteImageLayer = async () => {
+  const deleteImageLayer = async (imageLayerId?: string) => {
     if (imageLayerIdToDelete) {
       await ImageLayers.remove(imageLayerIdToDelete, projectId, collection.id);
     }
+
+    console.log(imageLayerId);
+
+    if (imageLayerId) {
+      await ImageLayers.remove(imageLayerId, projectId, collection.id);
+    }
+
     setImageLayerIdToDelete(null);
     setDeleteModalOpen(false);
     const imageLayerElem = document.getElementById(
-      "imagelayer-" + imageLayerIdToDelete
+      "imagelayer-" + (imageLayerIdToDelete || imageLayerId)
     );
     imageLayerElem?.remove();
   };

@@ -17,6 +17,8 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { API } from "../../../../../../models/api";
 
+import pLimit from 'p-limit';
+
 interface Props {
   project: Project;
   projects: Project[];
@@ -35,6 +37,7 @@ export default function IndexPage(props: Props) {
   const projectId = props.projectId;
 
   const BATCH_SIZE = 10;
+  const MAX_CONCURRENCY = 10;
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [generatingModalOpen, setGeneratingModalOpen] = useState(false);
@@ -79,6 +82,41 @@ export default function IndexPage(props: Props) {
     setDeleteModalOpen(false);
   };
 
+  const addToQueue = (
+    limit: any,
+    projectId:string, 
+    collectionId:string, 
+    compositeGroupId:string, 
+    traitSetId:string, 
+    totalCreated:number,
+    batchSize:number, 
+    isFirstBatchInTraitSet:string
+  ) => {
+    const url = API.ENDPOINT +
+      "/generate-artwork?projectId=" +
+      projectId +
+      "&collectionId=" +
+      collectionId +
+      "&compositeGroupId=" +
+      compositeGroupId +
+      "&traitSetId=" +
+      traitSetId +
+      "&startIndex=" +
+      totalCreated +
+      "&batchSize=" +
+      batchSize +
+      "&isFirstBatchInTraitSet=" +
+      isFirstBatchInTraitSet;
+
+    return limit(() => fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    }))
+  }
+
   const generateNewCompositeGroup = async () => {
     let batchNum = 0;
     let totalCreated = 0;
@@ -103,6 +141,7 @@ export default function IndexPage(props: Props) {
       traitSets = [defaultTraitSet];
     }
 
+    const limit = pLimit(MAX_CONCURRENCY);
     const promiseResults = [];
     
     for (let i = 0; i < traitSets.length && !isGeneratingCancelled; i++) {
@@ -123,32 +162,16 @@ export default function IndexPage(props: Props) {
         const maxTraitSetBatchSize = traitSet.supply - traitSetCreated;
         const batchSize = Math.min(BATCH_SIZE, maxTraitSetBatchSize);
 
-        const newComposites = fetch(
-          API.ENDPOINT +
-            "/generate-artwork?projectId=" +
-            projectId +
-            "&collectionId=" +
-            collection.id +
-            "&compositeGroupId=" +
-            compositeGroup.id +
-            "&traitSetId=" +
-            traitSet.id +
-            "&startIndex=" +
-            totalCreated +
-            "&batchSize=" +
-            batchSize +
-            "&isFirstBatchInTraitSet=" +
-            (traitSetCreated == 0 ? "1" : "0"),
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-            },
-          }
-        )
-
-        promiseResults.push(newComposites);
+        promiseResults.push(addToQueue(
+          limit,
+          project.id,
+          collection.id,
+          compositeGroup.id,
+          traitSet.id,
+          totalCreated,
+          batchSize,
+          (traitSetCreated == 0 ? "1" : "0"),
+        ));
 
         traitSetCreated += batchSize;
         totalCreated += batchSize;

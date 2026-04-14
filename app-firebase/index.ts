@@ -21,10 +21,10 @@ const auth = getAuth(firebase);
 const db = getFirestore(firebase);
 const storage = getStorage(firebase);
 
-if (isFirstInitialization && process.env.NODE_ENV === "development") {  
-  connectAuthEmulator(auth, "http://localhost:9099");
-  connectFirestoreEmulator(db, "localhost", 8080);
-  connectStorageEmulator(storage, "localhost", 9199);
-}
+// if (isFirstInitialization && process.env.NODE_ENV === "development") {  
+//   connectAuthEmulator(auth, "http://localhost:9099");
+//   connectFirestoreEmulator(db, "localhost", 8080);
+//   connectStorageEmulator(storage, "localhost", 9199);
+// }
 
 export { firebase as default, auth, db, storage };

@@ -10,6 +10,11 @@ import { TTForm } from "../TTForm";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 
+const blendingModes = [
+  'multiply',
+  'overlay',
+];
+
 interface Props {
   imageLayer: ImageLayer;
   projectId: string;
@@ -46,6 +51,7 @@ export const ArtworkForm: React.FC<Props> = ({
         .string()
         .notOneOf(["-1"], "This field is required")
         .required("This field is required"),
+      blendingMode: yup.string(),
       companionLayerId: yup.string().notRequired(),
       companionLayerZIndex: yup.mixed().when("companionLayerId", {
         is: (companionLayerId: any) => companionLayerId != "-1",
@@ -54,7 +60,7 @@ export const ArtworkForm: React.FC<Props> = ({
           .typeError("Must be a positive number")
           .positive("Must be a positive number")
           .required("Must be a positive number"),
-      }),
+      })
     })
     .required();
 
@@ -250,7 +256,7 @@ export const ArtworkForm: React.FC<Props> = ({
                 htmlFor="traitValueId"
                 className="block text-sm font-medium text-gray-700"
               >
-                Associated Trait Value
+                Associated Trait Value foo
               </label>
               <select
                 id="traitValueId"
@@ -269,6 +275,34 @@ export const ArtworkForm: React.FC<Props> = ({
               {errors.traitValueId && (
                 <span className=" text-red-800 text-xs">
                   {errors.traitValueId.message}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="blendingMode"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Blending Mode
+              </label>
+              <select
+                id="blendingMode"
+                {...register("blendingMode")}
+                className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                defaultValue={imageLayer.blendingMode ?? ""}
+              >
+                <option value="-1">Unassigned</option>
+                {blendingModes.map((blendingMode: string, i: number) => (
+                  <option key={i} value={blendingMode}>
+                    {blendingMode}
+                  </option>
+                ))}
+              </select>
+
+              {errors.blendingMode && (
+                <span className=" text-red-800 text-xs">
+                  {errors.blendingMode.message}
                 </span>
               )}
             </div>

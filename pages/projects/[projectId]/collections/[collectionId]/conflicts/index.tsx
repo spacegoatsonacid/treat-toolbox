@@ -162,6 +162,29 @@ export default function IndexPage(props: Props) {
                   </button>
                 </Link>
               </span>
+              <span className="">
+                <Link
+                  href={
+                    "/projects/" +
+                    project.id +
+                    "/collections/" +
+                    collection.id +
+                    "/conflicts/bulk"
+                  }
+                  passHref={true}
+                >
+                  <button
+                    type="button"
+                    className="inline-flex items-center px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    <DocumentAddIcon
+                      className="-ml-1 mr-1 h-5 w-5"
+                      aria-hidden="true"
+                    />
+                    Bulk Add Conflicts
+                  </button>
+                </Link>
+              </span>
             </div>
 
             <div className="flex flex-col clear-both px-8 py-4">
